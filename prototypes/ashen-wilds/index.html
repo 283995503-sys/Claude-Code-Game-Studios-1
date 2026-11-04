@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101a18">
+  <title>灰烬荒野 — 生存试炼</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #101a18; color: #f4f0dc; }
+    body { user-select: none; -webkit-user-select: none; }
+    #game { position: relative; width: 100%; height: 100%; min-height: 360px; overflow: hidden; background: radial-gradient(ellipse at center, #31483b 0%, #172722 76%); }
+    canvas { display: block; width: 100%; height: 100%; }
+    .hud { position: absolute; z-index: 2; top: max(14px, env(safe-area-inset-top)); left: 50%; width: min(940px, calc(100% - 32px)); transform: translateX(-50%); display: grid; grid-template-columns: 1fr auto; gap: 12px 20px; pointer-events: none; text-shadow: 0 2px 6px #000; }
+    .brand { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: #c6b98b; }
+    .stats { display: flex; align-items: center; gap: 16px; justify-content: flex-end; font-size: 13px; font-weight: 750; }
+    .stat { white-space: nowrap; }
+    .health, .xp { grid-column: 1 / -1; height: 9px; overflow: hidden; border: 1px solid #ffffff35; border-radius: 99px; background: #111a16bd; box-shadow: 0 3px 12px #0005; }
+    .fill { height: 100%; width: 100%; border-radius: inherit; transition: width .12s linear; }
+    #healthFill { background: linear-gradient(90deg, #c94d42, #f18061); }
+    #xpFill { background: linear-gradient(90deg, #59d5a2, #c7ed9b); }
+    .xp { height: 5px; margin-top: -8px; }
+    .hint { grid-column: 1 / -1; justify-self: center; color: #f1e8c5cc; font-size: 11px; letter-spacing: .04em; }
+    .overlay { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; padding: 22px; background: #08110ec9; backdrop-filter: blur(7px); }
+    .panel { width: min(700px, 100%); padding: clamp(24px, 5vw, 48px); border: 1px solid #d5c58b55; border-radius: 18px; background: linear-gradient(145deg, #24372fef, #101a18f5); box-shadow: 0 24px 90px #0009; text-align: center; }
+    .eyebrow { color: #c9b979; font-size: 11px; font-weight: 800; letter-spacing: .25em; text-transform: uppercase; }
+    h1 { margin: 10px 0 8px; font-size: clamp(34px, 8vw, 68px); line-height: .98; letter-spacing: -.05em; }
+    h2 { margin: 8px 0 12px; font-size: clamp(25px, 5vw, 38px); }
+    .subtitle { max-width: 500px; margin: 0 auto 24px; color: #d7ddc9; line-height: 1.65; }
+    .button { appearance: none; border: 1px solid #e8d68b; border-radius: 10px; padding: 13px 22px; background: linear-gradient(180deg, #d6bd69, #a6843f); color: #172019; font: inherit; font-weight: 900; cursor: pointer; box-shadow: 0 6px 18px #0005; }
+    .button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    .button:focus-visible, .card:focus-visible { outline: 3px solid #8fe6c0; outline-offset: 3px; }
+    .small { color: #bdc9b9; font-size: 12px; line-height: 1.7; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 24px 0 4px; }
+    .card { min-height: 145px; padding: 17px 14px; border: 1px solid #c9b97966; border-radius: 12px; background: #ffffff0b; color: #f4f0dc; text-align: left; cursor: pointer; transition: .15s ease; }
+    .card:hover { border-color: #e6d58c; background: #c9b97919; transform: translateY(-3px); }
+    .card strong { display: block; margin: 8px 0; color: #e9d78e; font-size: 15px; }
+    .card span { color: #c7d0c3; font-size: 12px; line-height: 1.45; }
+    .card .icon { font-size: 22px; }
+    .hidden { display: none !important; }
+    .touch { position: absolute; z-index: 3; bottom: max(20px, env(safe-area-inset-bottom)); left: 20px; right: 20px; display: none; justify-content: space-between; align-items: end; pointer-events: none; }
+    .stick, .dash { pointer-events: auto; touch-action: none; }
+    .stick { position: relative; width: 116px; height: 116px; border: 1px solid #ffffff42; border-radius: 50%; background: #09120d66; box-shadow: inset 0 0 25px #0007; }
+    .nub { position: absolute; top: 50%; left: 50%; width: 48px; height: 48px; border: 1px solid #fff8; border-radius: 50%; background: #d3c178a6; transform: translate(-50%, -50%); }
+    .dash { width: 72px; height: 72px; border: 1px solid #eedc9c; border-radius: 50%; background: #a77a3dbb; color: #fff3c6; font-weight: 900; }
+    @media (pointer: coarse), (max-width: 700px) { .touch { display: flex; } .hint { display: none; } .hud { gap: 8px 12px; } .stats { gap: 9px; font-size: 11px; } .brand { font-size: 9px; } .cards { grid-template-columns: 1fr; gap: 8px; margin-top: 15px; } .card { min-height: 0; padding: 11px 13px; display: grid; grid-template-columns: 30px 1fr; align-items: center; } .card .icon { grid-row: span 2; } .card strong { margin: 0 0 3px; } }
+  </style>
+</head>
+<body>
+  <main id="game" aria-label="灰烬荒野游戏区域">
+    <canvas id="world" aria-label="生存战斗画面"></canvas>
+    <section class="hud" aria-live="polite">
+      <div class="brand">ASHEN WILDS · 生存试炼</div>
+      <div class="stats"><span class="stat" id="clock">00:00</span><span class="stat" id="level">等级 1</span><span class="stat" id="kills">击败 0</span></div>
+      <div class="health"><div class="fill" id="healthFill"></div></div>
+      <div class="xp"><div class="fill" id="xpFill"></div></div>
+      <div class="hint">WASD / 方向键移动　·　空格冲刺　·　攻击自动瞄准　·　Esc 暂停</div>
+    </section>
+    <div class="touch" aria-label="触屏控制">
+      <div class="stick" id="stick" aria-label="虚拟摇杆"><div class="nub" id="nub"></div></div>
+      <button class="dash" id="dashButton" type="button" aria-label="冲刺">冲刺</button>
+    </div>
+
+    <section class="overlay" id="startScreen">
+      <div class="panel">
+        <div class="eyebrow">原创浏览器生存原型</div>
+        <h1>灰烬荒野</h1>
+        <p class="subtitle">暮色吞没森林，荒野生物正从阴影中涌来。移动、闪避，让符文自动寻敌；收集灵光，选择升级，撑过三分钟。</p>
+        <button class="button" id="startButton" type="button">进入荒野</button>
+        <p class="small">键盘：WASD / 方向键移动，空格冲刺，Esc 暂停。<br>手机：左侧拖动移动，右侧按钮冲刺。建议横屏体验。</p>
+      </div>
+    </section>
+    <section class="overlay hidden" id="levelScreen" aria-modal="true" role="dialog" aria-labelledby="levelTitle">
+      <div class="panel">
+        <div class="eyebrow">���光共鸣</div><h2 id="levelTitle">升级！选择一项</h2>
+        <p class="small">选择后试炼继续。每种强化都可以重复获得。</p>
+        <div class="cards" id="upgradeCards"></div>
+      </div>
+    </section>
+    <section class="overlay hidden" id="pauseScreen" aria-modal="true" role="dialog">
+      <div class="panel"><div class="eyebrow">暂歇片刻</div><h2>试炼暂停</h2><p class="subtitle">荒野在等待你的下一步。</p><button class="button" id="resumeButton" type="button">继续试炼</button></div>
+    </section>
+    <section class="overlay hidden" id="endScreen" aria-modal="true" role="dialog">
+      <div class="panel"><div class="eyebrow" id="endEyebrow">试炼结束</div><h2 id="endTitle">你倒下了</h2><p class="subtitle" id="endSummary"></p><button class="button" id="restartButton" type="button">再试一次</button></div>
+    </section>
+  </main>
+<script>
+(() => {
+  'use strict';
+  // Tuneable prototype values are kept together for quick playtest iteration.
+  const CONFIG = {
+    runSeconds: 180, playerSpeed: 220, playerMaxHealth: 100, contactCooldown: 0.72,
+    boltCooldown: 0.62, boltSpeed: 470, boltDamage: 22, spawnInterval: 1.05,
+    enemyBaseHealth: 34, enemyBaseSpeed: 48, xpPerKill: 1, dashCooldown: 3.2,
+    levelBaseXp: 5, levelXpStep: 3, maxEnemies: 55, eliteEverySeconds: 60
+  };
+  const canvas = document.getElementById('world');
+  const ctx = canvas.getContext('2d');
+  const ui = Object.fromEntries(['clock','level','kills','healthFill','xpFill','startScreen','levelScreen','pauseScreen','endScreen','upgradeCards','endEyebrow','endTitle','endSummary'].map(id => [id, document.getElementById(id)]));
+  const keys = new Set();
+  const rand = (min, max) => min + Math.random() * (max - min);
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const upgrades = [
+    { id:'power', icon:'✦', name:'符文增幅', text:'法术伤害提高 25%。', apply:g => { g.damage *= 1.25; } },
+    { id:'haste', icon:'➶', name:'迅捷咒印', text:'自动攻击间隔缩短 18%。', apply:g => { g.fireRate = Math.max(.18, g.fireRate * .82); } },
+    { id:'vitality', icon:'♥', name:'荒野韧性', text:'恢复 35 点生命，并提高 20 点上限。', apply:g => { g.maxHealth += 20; g.health = Math.min(g.maxHealth, g.health + 35); } },
+    { id:'swift', icon:'➤', name:'疾风步', text:'移动速度提高 12%。', apply:g => { g.speed *= 1.12; } },
+    { id:'magnet', icon:'◎', name:'灵光牵引', text:'灵光拾取范围扩大 45%。', apply:g => { g.pickupRadius *= 1.45; } },
+    { id:'pierce', icon:'✧', name:'穿透符文', text:'法术可多穿透一个敌人。', apply:g => { g.pierce += 1; } },
+    { id:'dash', icon:'⚡', name:'闪影回响', text:'冲刺冷却缩短 22%。', apply:g => { g.dashCooldown = Math.max(1.1, g.dashCooldown * .78); } }
+  ];
+  let width = 0, height = 0, dpr = 1, lastTime = 0, game = null, state = 'menu', touchVector = {x:0,y:0};
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = Math.max(1, rect.width); height = Math.max(1, rect.height);
+    canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize); resize();
+
+  function newGame() {
+    game = {
+      elapsed:0, player:{x:width/2,y:height/2,radius:13,health:CONFIG.playerMaxHealth,maxHealth:CONFIG.playerMaxHealth, invulnerable:0, facingX:1,facingY:0},
+      speed:CONFIG.playerSpeed, damage:CONFIG.boltDamage, fireRate:CONFIG.boltCooldown, fireTimer:.2, dashCooldown:CONFIG.dashCooldown, dashTimer:0, dashTime:0,
+      pickupRadius:32, pierce:0, enemies:[], bolts:[], gems:[], particles:[], spawnTimer:.25, kills:0, level:1, xp:0, nextXp:CONFIG.levelBaseXp, eliteTimer:CONFIG.eliteEverySeconds, bossSpawned:0
+    };
+    state='playing'; hideAll(); updateHud(); lastTime=performance.now();
+  }
+  function hideAll(){ for (const id of ['startScreen','levelScreen','pauseScreen','endScreen']) ui[id].classList.add('hidden'); }
+  function show(id){ hideAll(); ui[id].classList.remove('hidden'); }
+  function fmtTime(seconds){ const s=Math.max(0,Math.floor(seconds)); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+  function updateHud(){
+    if(!game) return;
+    ui.clock.textContent=fmtTime(CONFIG.runSeconds-game.elapsed);
+    ui.level.textContent=`等级 ${game.level}`; ui.kills.textContent=`击败 ${game.kills}`;
+    ui.healthFill.style.width=`${clamp(game.player.health/game.player.maxHealth*100,0,100)}%`;
+    ui.xpFill.style.width=`${clamp(game.xp/game.nextXp*100,0,100)}%`;
+  }
+  function spawnEnemy(forceBoss=false){
+    if(game.enemies.length>=CONFIG.maxEnemies && !forceBoss) return;
+    const side=Math.floor(Math.random()*4), pad=28;
+    const x=side===0?-pad:side===1?width+pad:rand(0,width);
+    const y=side===2?-pad:side===3?height+pad:rand(0,height);
+    const boss=forceBoss;
+    const elapsedFactor=1+game.elapsed/115;
+    const elite=!boss && game.elapsed>28 && Math.random()<Math.min(.2, game.elapsed/700);
+    game.enemies.push({x,y,radius:boss?27:elite?17:rand(10,14),health:(boss?380:elite?95:CONFIG.enemyBaseHealth)*elapsedFactor,maxHealth:(boss?380:elite?95:CONFIG.enemyBaseHealth)*elapsedFactor,speed:(boss?31:elite?42:CONFIG.enemyBaseSpeed)*Math.min(1.55,elapsedFactor*.78),damage:boss?24:elite?15:10,boss,elite,hitFlash:0});
+  }
+  function spawnGem(x,y,amount=1){ game.gems.push({x,y,radius:6,value:amount,phase:rand(0,Math.PI*2)}); }
+  function burst(x,y,color,count=7){ for(let i=0;i<count;i++){const a=rand(0,Math.PI*2),s=rand(35,150);game.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(.18,.48),maxLife:.48,color,size:rand(2,4)});} }
+
+  function movePlayer(dt){
+    let x=(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0)+touchVector.x;
+    let y=(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0)+touchVector.y;
+    const len=Math.hypot(x,y); if(len>1){x/=len;y/=len;}
+    if(x||y){game.player.facingX=x;game.player.facingY=y;}
+    if((keys.has(' ')||keys.has('shift')) && game.dashTimer<=0){
+      if(!x&&!y){x=game.player.facingX;y=game.player.facingY;}
+      game.player.x+=x*120;game.player.y+=y*120;game.player.invulnerable=.35;game.dashTimer=game.dashCooldown;game.dashTime=.22;burst(game.player.x,game.player.y,'#a8f4d0',12);
+      keys.delete(' ');keys.delete('shift');
+    }
+    game.player.x=clamp(game.player.x+x*game.speed*dt,game.player.radius,width-game.player.radius);
+    game.player.y=clamp(game.player.y+y*game.speed*dt,game.player.radius,height-game.player.radius);
+    game.player.invulnerable=Math.max(0,game.player.invulnerable-dt);game.dashTimer=Math.max(0,game.dashTimer-dt);game.dashTime=Math.max(0,game.dashTime-dt);
+  }
+  function fireBolt(){
+    let target=null,best=Infinity;
+    for(const enemy of game.enemies){const d=distance(game.player,enemy);if(d<best){best=d;target=enemy;}}
+    if(!target) return;
+    const dx=target.x-game.player.x,dy=target.y-game.player.y,len=Math.hypot(dx,dy)||1;
+    game.bolts.push({x:game.player.x,y:game.player.y,vx:dx/len*CONFIG.boltSpeed,vy:dy/len*CONFIG.boltSpeed,radius:5,damage:game.damage,pierce:game.pierce,hit:new Set(),life:1.6});
+    burst(game.player.x+dx/len*14,game.player.y+dy/len*14,'#a6f5d1',2);
+  }
+  function update(dt){
+    if(state!=='playing'||!game)return;
+    game.elapsed+=dt;
+    if(game.elapsed>=game.eliteTimer){ game.eliteTimer+=CONFIG.eliteEverySeconds; if(game.bossSpawned<2){spawnEnemy(true);game.bossSpawned++;} }
+    movePlayer(dt);
+    game.spawnTimer-=dt;
+    if(game.spawnTimer<=0){spawnEnemy();game.spawnTimer=CONFIG.spawnInterval/Math.min(1.65,1+game.elapsed/95);}
+    game.fireTimer-=dt; if(game.fireTimer<=0){fireBolt();game.fireTimer=game.fireRate;}
+    for(const enemy of game.enemies){
+      const dx=game.player.x-enemy.x,dy=game.player.y-enemy.y,len=Math.hypot(dx,dy)||1;
+      enemy.x+=dx/len*enemy.speed*dt;enemy.y+=dy/len*enemy.speed*dt;enemy.hitFlash=Math.max(0,enemy.hitFlash-dt);
+      if(len<game.player.radius+enemy.radius && game.player.invulnerable<=0){game.player.health-=enemy.damage;game.player.invulnerable=CONFIG.contactCooldown;burst(game.player.x,game.player.y,'#ff8368',8);if(game.player.health<=0){game.player.health=0;finish(false);return;}}
+    }
+    for(const bolt of game.bolts){bolt.x+=bolt.vx*dt;bolt.y+=bolt.vy*dt;bolt.life-=dt;
+      for(const enemy of game.enemies){if(bolt.hit.has(enemy))continue;if(distance(bolt,enemy)<bolt.radius+enemy.radius){enemy.health-=bolt.damage;enemy.hitFlash=.09;bolt.hit.add(enemy);burst(bolt.x,bolt.y,'#a6f5d1',3);if(bolt.pierce<=0){bolt.life=0;break;}bolt.pierce--;}}
+    }
+    for(let i=game.enemies.length-1;i>=0;i--){const e=game.enemies[i];if(e.health<=0){game.enemies.splice(i,1);game.kills++;spawnGem(e.x,e.y,e.boss?5:e.elite?3:CONFIG.xpPerKill);burst(e.x,e.y,e.boss?'#ffd66e':'#ff9b72',e.boss?24:9);}}
+    game.bolts=game.bolts.filter(b=>b.life>0&&b.x>-30&&b.x<width+30&&b.y>-30&&b.y<height+30);
+    for(let i=game.gems.length-1;i>=0;i--){const gem=game.gems[i];gem.phase+=dt*3;const d=distance(gem,game.player);if(d<game.pickupRadius+65){const force=d<game.pickupRadius?340:120;const len=d||1;gem.x+=(game.player.x-gem.x)/len*force*dt;gem.y+=(game.player.y-gem.y)/len*force*dt;}
+      if(distance(gem,game.player)<game.player.radius+gem.radius+3){game.xp+=gem.value;game.gems.splice(i,1);burst(game.player.x,game.player.y,'#b8f5bd',4);if(game.xp>=game.nextXp){game.xp-=game.nextXp;game.level++;game.nextXp=CONFIG.levelBaseXp+(game.level-1)*CONFIG.levelXpStep;showUpgrade();return;}}
+    }
+    for(const p of game.particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;p.vx*=.96;p.vy*=.96;}
+    game.particles=game.particles.filter(p=>p.life>0);
+    if(game.elapsed>=CONFIG.runSeconds){finish(true);return;}
+    updateHud();
+  }
+  function showUpgrade(){state='level';const choices=[...upgrades].sort(()=>Math.random()-.5).slice(0,3);ui.upgradeCards.replaceChildren();
+    for(const item of choices){const button=document.createElement('button');button.type='button';button.className='card';button.innerHTML=`<span class="icon">${item.icon}</span><strong>${item.name}</strong><span>${item.text}</span>`;button.addEventListener('click',()=>{item.apply(game);state='playing';hideAll();lastTime=performance.now();updateHud();});ui.upgradeCards.append(button);}
+    show('levelScreen');
+  }
+  function finish(victory){state='ended';ui.endEyebrow.textContent=victory?'荒野归于寂静':'试炼结束';ui.endTitle.textContent=victory?'你守住了荒野！':'你倒下了';ui.endSummary.textContent=`生存 ${fmtTime(game.elapsed)} · 击败 ${game.kills} 个敌人 · 达到等级 ${game.level}`;show('endScreen');}
+  function drawBackground(){
+    ctx.fillStyle='#192b25';ctx.fillRect(0,0,width,height);
+    const tile=64,ox=(game?game.elapsed*7:0)%tile;
+    for(let y=-tile;y<height+tile;y+=tile){for(let x=-tile;x<width+tile;x+=tile){const n=(Math.floor((x+ox)/tile)*17+Math.floor(y/tile)*31)%7;ctx.fillStyle=n%2?'#20352b':'#1d3128';ctx.fillRect(x+ox,y,tile-1,tile-1);if(n===1||n===4){ctx.fillStyle='#35503a';ctx.globalAlpha=.6;ctx.beginPath();ctx.arc(x+ox+25,y+27,randStatic(n)*8,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}if(n===3){ctx.fillStyle='#9d946133';ctx.fillRect(x+ox+40,y+12,3,3);}}}
+    const vignette=ctx.createRadialGradient(width/2,height/2,Math.min(width,height)*.2,width/2,height/2,Math.max(width,height)*.72);vignette.addColorStop(0,'#00000000');vignette.addColorStop(1,'#08100cc7');ctx.fillStyle=vignette;ctx.fillRect(0,0,width,height);
+  }
+  function randStatic(n){return 1.2+(n%4)*.35;}
+  function draw(){
+    drawBackground();if(!game)return;
+    for(const gem of game.gems){const pulse=Math.sin(gem.phase)*1.5;ctx.save();ctx.translate(gem.x,gem.y);ctx.rotate(Math.PI/4);ctx.fillStyle='#a7f2bd';ctx.shadowColor='#7dffb8';ctx.shadowBlur=15;ctx.fillRect(-5-pulse/2,-5-pulse/2,10+pulse,10+pulse);ctx.restore();}
+    for(const bolt of game.bolts){ctx.beginPath();ctx.fillStyle='#b9ffe2';ctx.shadowColor='#70ffc3';ctx.shadowBlur=17;ctx.arc(bolt.x,bolt.y,bolt.radius,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;}
+    for(const e of game.enemies){ctx.save();ctx.translate(e.x,e.y);ctx.fillStyle=e.hitFlash>0?'#fff':e.boss?'#d18b4d':e.elite?'#b16d68':'#9b8064';ctx.strokeStyle=e.boss?'#ffd477':'#d7c6a2';ctx.lineWidth=e.boss?3:1.5;ctx.shadowColor=e.boss?'#ff9f45':'#000';ctx.shadowBlur=e.boss?20:5;ctx.beginPath();ctx.arc(0,0,e.radius,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;
+      ctx.fillStyle='#33271e';ctx.beginPath();ctx.arc(-e.radius*.32,-2,2.1,0,7);ctx.arc(e.radius*.32,-2,2.1,0,7);ctx.fill();if(e.boss){ctx.fillStyle='#f0d7a1';ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText('荒野巨兽',0,-e.radius-9);ctx.fillStyle='#140f0c';ctx.fillRect(-25,e.radius+7,50,5);ctx.fillStyle='#e77857';ctx.fillRect(-25,e.radius+7,50*clamp(e.health/e.maxHealth,0,1),5);}ctx.restore();}
+    for(const p of game.particles){ctx.globalAlpha=clamp(p.life/p.maxLife,0,1);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
+    const pl=game.player;ctx.save();ctx.translate(pl.x,pl.y);if(pl.invulnerable>0&&Math.floor(game.elapsed*18)%2===0)ctx.globalAlpha=.45;ctx.shadowColor='#89f3c4';ctx.shadowBlur=20;ctx.fillStyle='#55b994';ctx.beginPath();ctx.arc(0,0,pl.radius+3,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#e9d9a1';ctx.beginPath();ctx.arc(0,-2,pl.radius*.65,0,Math.PI*2);ctx.fill();ctx.fillStyle='#314b3d';ctx.beginPath();ctx.arc(0,-pl.radius*.42,pl.radius*.58,Math.PI,0);ctx.fill();ctx.strokeStyle='#e7d28d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(pl.facingX*8,pl.facingY*8);ctx.lineTo(pl.facingX*17,pl.facingY*17);ctx.stroke();ctx.restore();
+    if(game.dashTimer>0){ctx.fillStyle='#f0dc9b';ctx.font='bold 11px system-ui';ctx.textAlign='center';ctx.fillText(`冲刺 ${game.dashTimer.toFixed(1)}s`,pl.x,pl.y+29);}
+  }
+  function frame(now){const dt=Math.min(.033,Math.max(0,(now-lastTime)/1000));lastTime=now;update(dt);draw();requestAnimationFrame(frame);}
+  requestAnimationFrame(frame);
+  document.getElementById('startButton').addEventListener('click',newGame);
+  document.getElementById('restartButton').addEventListener('click',newGame);
+  document.getElementById('resumeButton').addEventListener('click',()=>{if(state==='paused'){state='playing';hideAll();lastTime=performance.now();}});
+  window.addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();keys.add(key);if(key==='escape'){if(state==='playing'){state='paused';show('pauseScreen');}else if(state==='paused'){state='playing';hideAll();lastTime=performance.now();}}});
+  window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+  window.addEventListener('blur',()=>{keys.clear();if(state==='playing'){state='paused';show('pauseScreen');}});
+  const stick=document.getElementById('stick'),nub=document.getElementById('nub');let stickPointer=null;
+  stick.addEventListener('pointerdown',e=>{stickPointer=e.pointerId;stick.setPointerCapture(e.pointerId);updateStick(e);});
+  stick.addEventListener('pointermove',e=>{if(e.pointerId===stickPointer)updateStick(e);});
+  function updateStick(e){const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,max=r.width*.34,len=Math.hypot(dx,dy)||1,m=Math.min(1,max/len);touchVector={x:dx/len*m,y:dy/len*m};nub.style.transform=`translate(calc(-50% + ${touchVector.x*max}px), calc(-50% + ${touchVector.y*max}px))`;}
+  function releaseStick(e){if(e.pointerId!==stickPointer)return;stickPointer=null;touchVector={x:0,y:0};nub.style.transform='translate(-50%, -50%)';}
+  stick.addEventListener('pointerup',releaseStick);stick.addEventListener('pointercancel',releaseStick);
+  document.getElementById('dashButton').addEventListener('pointerdown',e=>{e.preventDefault();keys.add(' ');});
+  document.getElementById('dashButton').addEventListener('pointerup',()=>keys.delete(' '));
+})();
+</script>
+</body>
+</html>
