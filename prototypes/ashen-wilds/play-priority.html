@@ -1,27 +1,11 @@
 <!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>烽火三国 - 奖励隔离修正版</title>
-<style>body{margin:0;background:#171312;color:#f5e9cf;font:16px system-ui;display:grid;place-items:center;min-height:100vh}.message{max-width:620px;margin:24px;padding:24px;border:1px solid #c9a55b;border-radius:12px;background:#30231d;line-height:1.6}a{color:#ffe09a}</style>
-</head>
-<body><div class="message" id="status">正在检查奖励隔离并启动修正版……</div>
-<script>
-(async()=>{
- const status=document.getElementById('status');
- const replacements=[
-  ["function openLevelSkillReward(){game.rewardQueue.push('skill');showNextReward()}function openChestEquipmentReward(){game.rewardQueue.push('equipment');showNextReward()}","function openLevelSkillReward(){game.rewardOrigin='level';game.rewardQueue.push('skill');showNextReward()}function openChestEquipmentReward(){game.rewardOrigin='chest';game.rewardQueue.push('equipment');showNextReward()}","独立技能/宝箱发放入口"],
-  ["function queueKillRewards(kind){if(kind==='elite')game.rewardQueue.push('skill','equipment');else if(kind==='boss')game.rewardQueue.push('skill','skill','equipment','equipment');if(game.rewardQueue.length)showNextReward()}","function queueKillRewards(kind){if(kind==='elite'){game.rewardOrigin='elite';game.rewardQueue.push('skill','equipment')}else if(kind==='boss'){game.rewardOrigin='boss';game.rewardQueue.push('skill','skill','equipment','equipment')}if(game.rewardQueue.length)showNextReward()}","精英/Boss 独立奖励队列"],
-  ["function selectRewardCard(type,card){if(type!==game.activeRewardType)return;","function selectRewardCard(type,card){if(type!==game.activeRewardType||(type==='skill'&&!card.type.startsWith('skill-'))||(type==='equipment'&&!card.type.startsWith('equipment-')))return;","奖励类型硬校验"],
-  ["function finishRewardSequence(){game.rewardQueue=[];game.activeRewardType=null;game.rewardSource=null;game.pendingEquipment=null;if(game.chest){game.chest=null;game.chestKills=0;chestPriceAfterPurchase();spawnChest()}state='playing';hide();last=performance.now();hud()}","function finishRewardSequence(){const completedOrigin=game.rewardOrigin;game.rewardQueue=[];game.activeRewardType=null;game.rewardSource=null;game.pendingEquipment=null;game.rewardOrigin=null;if(completedOrigin==='chest'&&game.chest){game.chest=null;game.chestKills=0;chestPriceAfterPurchase();spawnChest()}state='playing';hide();last=performance.now();hud()}","只在真正开箱后扣除宝箱/递增价格"]
- ];
- try{
-  const response=await fetch('./index.html',{cache:'no-store'});
-  if(!response.ok)throw new Error(`读取 index.html 失败 (${response.status})`);
-  let html=await response.text();
-  for(const [before,after,label] of replacements){const count=html.split(before).length-1;if(count!==1)throw new Error(`${label}补丁无法安全应用：预期匹配 1 处，实际 ${count} 处。`);html=html.replace(before,after)}
-  if(!html.includes('function buildLevelSkillCards()')||!html.includes('function buildChestEquipmentCards()'))throw new Error('技能池或装备池入口不存在，拒绝运行未隔离的奖励版本。');
-  document.open();document.write(html);document.close();
- }catch(error){status.textContent=`未能启动安全修正版：${error.message} 请确认与 index.html 同目录并使用本地 HTTP 服务器访问。`}
-})();
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>烽火三国修正版</title><body style="background:#211915;color:#f5e9cf;font:16px system-ui;padding:2rem"><p id="status">正在检查并启动修正版……</p><script>
+(async()=>{const out=document.getElementById('status');try{const r=await fetch('./index.html',{cache:'no-store'});if(!r.ok)throw Error(`index.html HTTP ${r.status}`);let src=await r.text();const patches=[
+["function useSkill(s){let target=nearest(Math.min(s.range,game.range+100));if(!target)return;const p=game.p","function nearestPriorityTarget(range){let nearestEnemy=null,nearestDistance=range,priority=null,priorityDistance=Math.min(range,C.eliteAggroRange);for(const enemy of game.enemies){const d=dist(game.p,enemy);if(d>range)continue;if(d<nearestDistance){nearestDistance=d;nearestEnemy=enemy}if((enemy.kind==='elite'||enemy.kind==='boss')&&d<=C.eliteAggroRange&&d<priorityDistance){priorityDistance=d;priority=enemy}}return priority||nearestEnemy}\nfunction useSkill(s){let target=(s.type==='single'||s.type==='lottery')?nearestPriorityTarget(Math.min(s.range,game.range+100)):nearest(Math.min(s.range,game.range+100));if(!target)return;const p=game.p","single-target elite/Boss priority"],
+["function openLevelSkillReward(){game.rewardQueue.push('skill');showNextReward()}function openChestEquipmentReward(){game.rewardQueue.push('equipment');showNextReward()}","function openLevelSkillReward(){game.rewardOrigin='level';game.rewardQueue.push('skill');showNextReward()}function openChestEquipmentReward(){game.rewardOrigin='chest';game.rewardQueue.push('equipment');showNextReward()}","separate level/chest reward origins"],
+["function queueKillRewards(kind){if(kind==='elite')game.rewardQueue.push('skill','equipment');else if(kind==='boss')game.rewardQueue.push('skill','skill','equipment','equipment');if(game.rewardQueue.length)showNextReward()}","function queueKillRewards(kind){if(kind==='elite'){game.rewardOrigin='elite';game.rewardQueue.push('skill','equipment')}else if(kind==='boss'){game.rewardOrigin='boss';game.rewardQueue.push('skill','skill','equipment','equipment')}if(game.rewardQueue.length)showNextReward()}","kill reward origin isolation"],
+["function selectRewardCard(type,card){if(type!==game.activeRewardType)return;","function selectRewardCard(type,card){if(type!==game.activeRewardType||(type==='skill'&&!card.type.startsWith('skill-'))||(type==='equipment'&&!card.type.startsWith('equipment-')))return;","reward card type guard"],
+["if(e.kind==='boss'&&game.bossIndex>=C.bossTotal){endGame(true);return}if(e.kind==='elite'||e.kind==='boss'){queueKillRewards(e.kind);return}","if(e.kind==='boss'&&game.bossIndex>=C.bossTotal){game.pendingVictory=true;queueKillRewards(e.kind);return}if(e.kind==='elite'||e.kind==='boss'){queueKillRewards(e.kind);return}","final Boss reward before victory"],
+["function finishRewardSequence(){game.rewardQueue=[];game.activeRewardType=null;game.rewardSource=null;game.pendingEquipment=null;if(game.chest){game.chest=null;game.chestKills=0;chestPriceAfterPurchase();spawnChest()}state='playing';hide();last=performance.now();hud()}","function finishRewardSequence(){const origin=game.rewardOrigin;game.rewardQueue=[];game.activeRewardType=null;game.rewardSource=null;game.rewardOrigin=null;game.pendingEquipment=null;if(origin==='chest'&&game.chest){game.chest=null;game.chestKills=0;chestPriceAfterPurchase();spawnChest()}if(game.pendingVictory){game.pendingVictory=false;endGame(true);return}state='playing';hide();last=performance.now();hud()}","chest-only cleanup and queued victory"]
+];for(const [before,after,label] of patches){const n=src.split(before).length-1;if(n!==1)throw Error(`${label}: expected exactly one code anchor, found ${n}; refusing partial patch`);src=src.replace(before,after)}if(!src.includes('function buildLevelSkillCards()')||!src.includes('function buildChestEquipmentCards()'))throw Error('Reward pool isolation anchors missing');document.open();document.write(src);document.close()}catch(e){out.textContent=`修正版未启动：${e.message}。请通过本地 HTTP 服务器访问，并确认同目录存在 index.html。`}})();
 </script></body></html>
